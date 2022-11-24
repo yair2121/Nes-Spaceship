@@ -16,11 +16,15 @@
     A_Flag: .res 1 ; Flag to indicate if A button was pushed 
     B_Flag: .res 1 ; Flag to indicate if B button was pushed
     Lazer1_speed: .res 1
+    Is_Shooting_Lazer: .res 1
     LDA #$00
     STA current_x
     STA current_y
     STA A_Flag
     STA B_Flag
+    STA Is_Shooting_Lazer
+    LDA #$02
+    STA Lazer1_speed
 
 .segment "STARTUP"
 Reset:
@@ -126,10 +130,11 @@ ClearNametable:
     LDA #%00011110
     STA $2001
 
-LDA #00
-STA Lazer1_speed
-; STA Lazer_flag
 Running:
+    LDA current_random
+    CLC
+    ADC #$07
+    STA current_random
     JMP Running
 
 
@@ -138,6 +143,7 @@ NMI:
     JSR shoot_lazer
     JSR moveSpriteDirection
     JSR updateSprites
+
     FINISH_NMI:
     LDA #$02 ; copy sprite data from $0200 => PPU memory for display
     STA $4014 
@@ -168,7 +174,8 @@ NMI:
         ADC current_x
         STA $020D
         rts
-    .endproc               
+    .endproc
+                   
     .proc changeAstroid ; Update 
         LDA current_random ; Check x input
         AND #03
@@ -187,9 +194,11 @@ NMI:
         LDA #$00
         STA $4016
         LDA $4016 ; A
+        SEC
         SBC #$40
         STA A_Flag
         LDA $4016 ; B
+        SEC
         SBC #$40
         STA B_Flag
         LDA $4016 ; Select
@@ -222,32 +231,78 @@ NMI:
         STA current_x
         finishReadingController:
             rts
-        .endproc                
+        .endproc
 
-    .proc shoot_lazer ; Update main sprite based on values in current_x and apply_Y
-        LDA $0210
-        SBC Lazer1_speed
+    .proc advance_lazer ; Update main sprite based on values in current_x and apply_Y
+        LDA $0210 ; Lazer 1
+        SEC
+        SBC #$02
+        STA $0210 ; Lazer 1
+        rts
+        .endproc    
+
+    .proc init_lazer ; init lazer position to be the same as spaceship and activate the Is_Shooting_Lazer flag.
+        LDA #$01
+        STA Is_Shooting_Lazer ; Activating lazer.
+        LDA $0204 
+        STA $0210 ; Lazer y
+        LDA $0203
+        STA $0213 ; Lazer x
+        rts
+        .endproc
+    
+    .proc stop_lazer
+        LDA #$00
+        STA Is_Shooting_Lazer
         STA $0210
+        rts
+        .endproc
+
+    .proc shoot_lazer ; Handle the logic of shooting one lazer.
+        LDA $0210
+        CMP #$FD
+        BCC dont_stop_lazer
+        JSR stop_lazer
+        dont_stop_lazer:
         LDA A_Flag
         CMP #$00
-        BEQ A_not_pressed
-        LDA #03 
-        STA Lazer1_speed
-        LDA $0204
-        STA $0210
-        LDA $0207
-        CLC
-        ADC #03
-        STA $0213
-        A_not_pressed:
-        LDA $0210
-        CMP #00
-        BPL finish_shoot_lazer
-        LDA #00
-        STA Lazer1_speed
+        BEQ dont_init_lazer
+        JSR init_lazer
+        dont_init_lazer:
+        LDA Is_Shooting_Lazer
+        CMP #$00
+        BEQ dont_advance_lazer
+        JSR advance_lazer
+        dont_advance_lazer:
         finish_shoot_lazer:
         rts
         .endproc 
+
+    ; .proc shoot_lazer ; Update main sprite based on values in current_x and apply_Y
+    ;     LDA $0210 ; Lazer 1
+    ;     SEC
+    ;     SBC Lazer1_speed
+    ;     STA $0210 ; Lazer 1
+    ;     LDA A_Flag
+    ;     CMP #$00
+    ;     BEQ A_not_pressed
+    ;     LDA #03 
+    ;     STA Lazer1_speed
+    ;     LDA $0204
+    ;     STA $0210
+    ;     LDA $0207
+    ;     CLC
+    ;     ADC #03
+    ;     STA $0213
+    ;     A_not_pressed:
+    ;     LDA $0210
+    ;     CMP #00
+    ;     BPL finish_shoot_lazer
+    ;     LDA #00
+    ;     STA Lazer1_speed
+    ;     finish_shoot_lazer:
+    ;     rts
+    ;     .endproc 
 
 
 
@@ -261,8 +316,8 @@ Spaceship:
   .byte $10, $11, $00, $10 ; 208 Right wing
   .byte $18, $01, $00, $0C ; 20C Fire
   .byte $00, $30, $01, $00 ; 210 Lazer1
-  .byte $00, $30, $01, $00 ; 214 Lazer2
-  .byte $00, $30, $01, $00 ; 218 Lazer3
+;   .byte $00, $30, $01, $00 ; 214 Lazer2
+;   .byte $00, $30, $01, $00 ; 218 Lazer3
 
 
 ;   .byte $00, $21, $01, $00 ; 210 astroids //TODO: remove-not 210, 213
