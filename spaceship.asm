@@ -95,7 +95,7 @@ LoadSprites:
     LDA Spaceship, X
     STA $0200, X
     INX
-    CPX #$18
+    CPX #$13
     BNE LoadSprites    
 
 ; Clear the nametables- this isn't necessary in most emulators unless
@@ -130,11 +130,16 @@ ClearNametable:
     LDA #%00011110
     STA $2001
 
+
+    .proc advanceRandomBit ; Update spirtes based on controller input
+        LDA #01 ; Check x input
+        CLC
+        ADC current_x
+        STA $020D
+        rts
+    .endproc
 Running:
-    LDA current_random
-    CLC
-    ADC #$07
-    STA current_random
+    JSR advanceRandomBit
     JMP Running
 
 
@@ -234,16 +239,19 @@ NMI:
         .endproc
 
     .proc advance_lazer ; Update main sprite based on values in current_x and apply_Y
-        LDA $0210 ; Lazer 1
-        SEC
-        SBC #$02
-        STA $0210 ; Lazer 1
+        DEC $0210
+        DEC $0210
+        ; LDA $0210 ; Lazer 1
+        ; SEC
+        ; SBC #$02
+        ; STA $0210 ; Lazer 1
         rts
         .endproc    
 
     .proc init_lazer ; init lazer position to be the same as spaceship and activate the Is_Shooting_Lazer flag.
         LDA #$01
         STA Is_Shooting_Lazer ; Activating lazer.
+        ; Resetting position to spaceship.
         LDA $0204 
         STA $0210 ; Lazer y
         LDA $0203
@@ -254,13 +262,14 @@ NMI:
     .proc stop_lazer
         LDA #$00
         STA Is_Shooting_Lazer
+        LDA #$F0 ; Remove Sprite from screen
         STA $0210
         rts
         .endproc
 
     .proc shoot_lazer ; Handle the logic of shooting one lazer.
         LDA $0210
-        CMP #$FD
+        CMP #$FD ; Is out of screen
         BCC dont_stop_lazer
         JSR stop_lazer
         dont_stop_lazer:
@@ -277,34 +286,6 @@ NMI:
         finish_shoot_lazer:
         rts
         .endproc 
-
-    ; .proc shoot_lazer ; Update main sprite based on values in current_x and apply_Y
-    ;     LDA $0210 ; Lazer 1
-    ;     SEC
-    ;     SBC Lazer1_speed
-    ;     STA $0210 ; Lazer 1
-    ;     LDA A_Flag
-    ;     CMP #$00
-    ;     BEQ A_not_pressed
-    ;     LDA #03 
-    ;     STA Lazer1_speed
-    ;     LDA $0204
-    ;     STA $0210
-    ;     LDA $0207
-    ;     CLC
-    ;     ADC #03
-    ;     STA $0213
-    ;     A_not_pressed:
-    ;     LDA $0210
-    ;     CMP #00
-    ;     BPL finish_shoot_lazer
-    ;     LDA #00
-    ;     STA Lazer1_speed
-    ;     finish_shoot_lazer:
-    ;     rts
-    ;     .endproc 
-
-
 
 PaletteData:
   .byte $22,$29,$1A,$0F,$22,$36,$17,$0f,$22,$30,$21,$0f,$22,$27,$17,$0F  ;background palette data
