@@ -12,19 +12,10 @@
 .segment "ZEROPAGE" ; LSB 0 - FF
     current_x: .res 1
     current_y: .res 1
-    current_random: .res 1
     A_Flag: .res 1 ; Flag to indicate if A button was pushed 
     B_Flag: .res 1 ; Flag to indicate if B button was pushed
     Lazer1_speed: .res 1
     Is_Shooting_Lazer: .res 1
-    LDA #$00
-    STA current_x
-    STA current_y
-    STA A_Flag
-    STA B_Flag
-    STA Is_Shooting_Lazer
-    LDA #$02
-    STA Lazer1_speed
 
 .segment "STARTUP"
 Reset:
@@ -130,23 +121,23 @@ ClearNametable:
     LDA #%00011110
     STA $2001
 
+InitVariable:
+    LDA #$00
+    STA current_x
+    STA current_y
+    STA A_Flag
+    STA B_Flag
+    STA Is_Shooting_Lazer
+    LDA #$02
+    STA Lazer1_speed
 
-    .proc advanceRandomBit ; Update spirtes based on controller input
-        LDA #01 ; Check x input
-        CLC
-        ADC current_x
-        STA $020D
-        rts
-    .endproc
 Running:
-    JSR advanceRandomBit
     JMP Running
-
 
 NMI:
     JSR ReadController
     JSR shoot_lazer
-    JSR moveSpriteDirection
+    JSR moveSpaceship
     JSR updateSprites
 
     FINISH_NMI:
@@ -154,8 +145,12 @@ NMI:
     STA $4014 
     RTI
 
-    .proc moveSpriteDirection ; Update main sprite based on values in current_x and apply_Y
-        LDX #$0C
+    .proc moveSpaceship ; Update main sprite based on values in current_x and current_Y
+    ; JSR adjust_spaceship_to_walls
+    ; LDA current_x
+    ; ORA current_y
+    ; BEQ DONE_MOVE_SPACESHIP ; No need to move if both x and y are zero
+    LDX #$0C
     :
         LDA current_y
         CLC
@@ -170,8 +165,9 @@ NMI:
         DEX
         DEX
         BPL :-
-        rts
-        .endproc 
+        DONE_MOVE_SPACESHIP:
+    rts
+    .endproc 
 
     .proc updateSprites ; Update spirtes based on controller input
         LDA #01 ; Check x input
@@ -179,16 +175,7 @@ NMI:
         ADC current_x
         STA $020D
         rts
-    .endproc
-                   
-    .proc changeAstroid ; Update 
-        LDA current_random ; Check x input
-        AND #03
-        CLC
-        ADC #$20
-        STA $0211
-        rts
-    .endproc               
+    .endproc              
 
      .proc   ReadController           ; Read Controller input into variables.
         LDA #$00 ; Zero Direction
@@ -238,13 +225,11 @@ NMI:
             rts
         .endproc
 
-    .proc advance_lazer ; Update main sprite based on values in current_x and apply_Y
-        DEC $0210
-        DEC $0210
-        ; LDA $0210 ; Lazer 1
-        ; SEC
-        ; SBC #$02
-        ; STA $0210 ; Lazer 1
+    .proc advance_lazer ; Update main sprite based on values in current_x and current_Y
+        LDA $0210 ; Lazer 1
+        SEC
+        SBC Lazer1_speed
+        STA $0210 ; Lazer 1
         rts
         .endproc    
 
@@ -297,13 +282,6 @@ Spaceship:
   .byte $10, $11, $00, $10 ; 208 Right wing
   .byte $18, $01, $00, $0C ; 20C Fire
   .byte $00, $30, $01, $00 ; 210 Lazer1
-;   .byte $00, $30, $01, $00 ; 214 Lazer2
-;   .byte $00, $30, $01, $00 ; 218 Lazer3
-
-
-;   .byte $00, $21, $01, $00 ; 210 astroids //TODO: remove-not 210, 213
-;   .byte $18, $00, $01, $0C ; 210 Fire Left
-;   .byte $18, $02, $01, $0C ; 214 Fire Right
 
 .segment "VECTORS"
     .word NMI
